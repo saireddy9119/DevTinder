@@ -6,6 +6,7 @@ const User = require('./models/user')
 const bcrypt = require('bcrypt')
 const { validateSignUpData } = require('./utils/validation')
 const cookieParser = require('cookie-parser')
+const { userAuth } = require("./middlewares/auth")
 app.use(cookieParser())
 app.use(express.json())
 
@@ -38,14 +39,14 @@ app.post("/login", async (req, res) => {
         if (!user) {
             return res.status(404).json({ message: "User not found" })
         }
-        const isValidPassword = await bcrypt.compare(password, user.password)
-        const token = await jwt.sign({ _id: user._id }, "DEV@Tinder$790")
+        const isValidPassword = await user.validatePassword(password)
+
 
         if (isValidPassword) {
             //Create a JWT Token
-
+            const token = await user.getJWT()
             //Add the token to cookie and send the response to the user.
-            res.cookie("token", token)
+            res.cookie("token", token, { expires: new Date(Date.now() + 8 * 3600000) })//cookie expires in 8 hours
             return res.status(200).json({ message: "Login successful", user })
         } else {
             throw new Error("Invalid password")
@@ -85,20 +86,9 @@ app.get("/feed", async (req, res) => {
 
 })
 
-app.get("/profile", async (req, res) => {
+app.get("/profile", userAuth, async (req, res) => {
     try {
-        const cookies = req.cookies
-        console.log(cookies)
-        const { token } = cookies
-        if (!token) {
-            throw new Error("Token not found")
-        }
-        const isTokenValid = await jwt.verify(token, "DEV@Tinder$790")
-        if (!isTokenValid) {
-            return res.status(401).json({ message: "Unauthorized" })
-        }
-        const { _id } = isTokenValid
-        res.send({ message: "Profile fetched successfully", userId: _id })
+        res.send({ message: "Profile fetched successfully", req: req.user })
     } catch (err) {
         return res.status(500).json({ message: "Error fetching profile", error: err.message })
     }
@@ -132,6 +122,10 @@ app.patch("/user/:userId", async (req, res) => {
     } catch (err) {
         res.status(500).send({ message: "Something went wrong", error: err.message })
     }
+})
+
+app.post("/sendConnectionRequest", userAuth, async (req, res) => {
+    const { user } = req
 })
 connectDB().then(() => {
     console.log("MongoDB connected successfully")
