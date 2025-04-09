@@ -1,61 +1,20 @@
 const express = require('express')
 const app = express()
 const connectDB = require('./config/database')
-const jwt = require('jsonwebtoken')
 const User = require('./models/user')
-const bcrypt = require('bcrypt')
-const { validateSignUpData } = require('./utils/validation')
 const cookieParser = require('cookie-parser')
-const { userAuth } = require("./middlewares/auth")
 app.use(cookieParser())
 app.use(express.json())
 
-app.post("/signup", async (req, res) => {
+const authRouter = require('./routers/auth')
+const profileRouter = require('./routers/profile')
+const requestsRouter = require('./routers/requests')
 
-    try {
-        validateSignUpData(req)
-        const { password, firstName, lastName, emailId } = req.body
-        const passwordHash = await bcrypt.hash(password, 10)
-        const user = new User({
-            firstName,
-            lastName,
-            emailId,
-            password: passwordHash,
-        })
-        await user.save()
-        return res.status(200).json({ message: "User created successfully" })
-    } catch (err) {
-        return res.status(500).json({ message: "Error creating user", error: err.message })
-    }
-
-})
+app.use('/', authRouter)
+app.use('/', profileRouter)
+app.use('/', requestsRouter)
 
 
-app.post("/login", async (req, res) => {
-    try {
-
-        const { emailId, password } = req.body
-        const user = await User.findOne({ emailId })
-        if (!user) {
-            return res.status(404).json({ message: "User not found" })
-        }
-        const isValidPassword = await user.validatePassword(password)
-
-
-        if (isValidPassword) {
-            //Create a JWT Token
-            const token = await user.getJWT()
-            //Add the token to cookie and send the response to the user.
-            res.cookie("token", token, { expires: new Date(Date.now() + 8 * 3600000) })//cookie expires in 8 hours
-            return res.status(200).json({ message: "Login successful", user })
-        } else {
-            throw new Error("Invalid password")
-        }
-
-    } catch (err) {
-        return res.status(500).json({ message: "Error logging in", error: err.message })
-    }
-})
 
 app.get("/user", async (req, res) => {
     const emailId = req.body.emailId
@@ -86,13 +45,7 @@ app.get("/feed", async (req, res) => {
 
 })
 
-app.get("/profile", userAuth, async (req, res) => {
-    try {
-        res.send({ message: "Profile fetched successfully", req: req.user })
-    } catch (err) {
-        return res.status(500).json({ message: "Error fetching profile", error: err.message })
-    }
-})
+
 
 app.delete("/user", async (req, res) => {
     const userId = req.body.userId;
@@ -124,9 +77,7 @@ app.patch("/user/:userId", async (req, res) => {
     }
 })
 
-app.post("/sendConnectionRequest", userAuth, async (req, res) => {
-    const { user } = req
-})
+
 connectDB().then(() => {
     console.log("MongoDB connected successfully")
     app.listen(3000, () => {
