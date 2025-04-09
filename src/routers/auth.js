@@ -1,9 +1,9 @@
 const express = require("express")
-const router = express.Router()
+const authRouter = express.Router()
 const User = require("../models/user")
 const bcrypt = require("bcrypt")
 const { validateSignUpData } = require("../utils/validation")
-router.post("/signup", async (req, res) => {
+authRouter.post("/signup", async (req, res) => {
 
     try {
         validateSignUpData(req)
@@ -23,7 +23,7 @@ router.post("/signup", async (req, res) => {
 
 })
 
-router.post("/login", async (req, res) => {
+authRouter.post("/login", async (req, res) => {
     try {
 
         const { emailId, password } = req.body
@@ -48,4 +48,10 @@ router.post("/login", async (req, res) => {
         return res.status(500).json({ message: "Error logging in", error: err.message })
     }
 })
-module.exports = router
+
+
+authRouter.post("/logout", async (req, res) => {
+    res.cookie("token", null, { expires: new Date(Date.now()) })
+    return res.status(200).json({ message: "Logout successful" })
+})
+module.exports = authRouter
